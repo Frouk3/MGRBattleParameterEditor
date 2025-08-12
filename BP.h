@@ -11,10 +11,10 @@ namespace BattleParameter
         int m_HitStopTime;
         int m_Int0;
         int m_Int1;
-        float m_Float0;
-        float m_Float1;
-        float m_Float2;
-        float m_Float3;
+        float m_BodyAtk;
+        float m_BodyDef;
+        float m_BodyFcGain;
+        float m_BodyFcLoss;
         int m_No;
         float m_EasyPowerScale;
         float m_HardPowerScale;

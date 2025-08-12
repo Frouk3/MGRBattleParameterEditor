@@ -323,10 +323,10 @@ void Drawing::Draw()
 					ImGui::InputInt("Hit Stop Time", &unit->m_HitStopTime);
 					ImGui::InputInt("Int 0", &unit->m_Int0);
 					ImGui::InputInt("Int 1", &unit->m_Int1);
-					ImGui::InputFloat("Float 0", &unit->m_Float0);
-					ImGui::InputFloat("Float 1", &unit->m_Float1);
-					ImGui::InputFloat("Float 2", &unit->m_Float2);
-					ImGui::InputFloat("Float 3", &unit->m_Float3);
+					ImGui::InputFloat("Damage Dealt Factor", &unit->m_BodyAtk);
+					ImGui::InputFloat("Damage Received Factor", &unit->m_BodyDef);
+					ImGui::InputFloat("Energy Absorption Factor", &unit->m_BodyFcGain);
+					ImGui::InputFloat("Energy Drain Factor", &unit->m_BodyFcLoss);
 					ImGui::InputInt("No", &unit->m_No);
 					ImGui::InputFloat("Easy Power Scale", &unit->m_EasyPowerScale);
 					ImGui::InputFloat("Hard Power Scale", &unit->m_HardPowerScale);
