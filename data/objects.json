@@ -1,4 +1,25 @@
 {
+    "pl0010": [
+        { "id": 377, "name": "Custom Body" },
+        /* out of order? */
+        { "id": 379, "name": "Custom Body (Blue)" },
+        { "id": 378, "name": "Custom Body (Red)" },
+        { "id": 380, "name": "Custom Body (Yellow)" },
+        { "id": 381, "name": "Desperado Body" },
+        { "id": 382, "name": "White Armor" },
+        { "id": 383, "name": "Inferno Armor" },
+        { "id": 384, "name": "Commando Armor" },
+        /* no 385? */
+        { "id": 386, "name": "Suit" },
+        { "id": 387, "name": "Mariachi Costume" },
+        { "id": 388, "name": "Standard Body" },
+        { "id": 389, "name": "Original Body" },
+        { "id": 390, "name": "Gray Fox" },
+        /* I assume these are in order */
+        { "id": 392, "name": "Infinite Wig A" },
+        { "id": 393, "name": "Infinite Wig B" },
+        { "id": 394, "name": "Blade Mode Wig" }
+    ],
     "pl1400": [
         { "id": 92,  "name": "Health" },
         { "id": 108, "name": "FC Bar" }
