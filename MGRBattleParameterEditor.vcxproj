@@ -131,7 +131,7 @@
       </Command>
     </CustomBuildStep>
     <PostBuildEvent>
-      <Command>mkdir "$(TargetDir)data" &amp; copy "$(ProjectDir)data\objects.json" "$(TargetDir)data"</Command>
+      <Command>mkdir "$(TargetDir)data" &amp; copy "$(ProjectDir)data\objects.json" "$(TargetDir)data" &amp; copy "$(ProjectDir)data\params.json" "$(TargetDir)data"</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">

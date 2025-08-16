@@ -1,27 +1,27 @@
 {
-    "pl0010": [
-        { "id": 377, "name": "Custom Body" },
-        /* out of order? */
-        { "id": 379, "name": "Custom Body (Blue)" },
-        { "id": 378, "name": "Custom Body (Red)" },
-        { "id": 380, "name": "Custom Body (Yellow)" },
-        { "id": 381, "name": "Desperado Body" },
-        { "id": 382, "name": "White Armor" },
-        { "id": 383, "name": "Inferno Armor" },
-        { "id": 384, "name": "Commando Armor" },
-        /* no 385? */
-        { "id": 386, "name": "Suit" },
-        { "id": 387, "name": "Mariachi Costume" },
-        { "id": 388, "name": "Standard Body" },
-        { "id": 389, "name": "Original Body" },
-        { "id": 390, "name": "Gray Fox" },
-        /* I assume these are in order */
-        { "id": 392, "name": "Infinite Wig A" },
-        { "id": 393, "name": "Infinite Wig B" },
-        { "id": 394, "name": "Blade Mode Wig" }
-    ],
-    "pl1400": [
-        { "id": 92,  "name": "Health" },
-        { "id": 108, "name": "FC Bar" }
-    ]
+    "pl0010": {
+        "377": { "name": "Custom Body", "params": "body" },
+        // out of order?
+        "379": { "name": "Custom Body (Blue)", "params": "body" },
+        "378": { "name": "Custom Body (Red)", "params": "body" },
+        "380": { "name": "Custom Body (Yellow)", "params": "body" },
+        "381": { "name": "Desperado Body", "params": "body" },
+        "382": { "name": "White Armor", "params": "body" },
+        "383": { "name": "Inferno Armor", "params": "body" },
+        "384": { "name": "Commando Armor", "params": "body" },
+        // no 385?
+        "386": { "name": "Suit", "params": "body" },
+        "387": { "name": "Mariachi Costume", "params": "body" },
+        "388": { "name": "Standard Body", "params": "body" },
+        "389": { "name": "Original Body", "params": "body" },
+        "390": { "name": "Gray Fox", "params": "body" },
+        // I assume these are in order
+        "392": { "name": "Infinite Wig A", "params": "body" },
+        "393": { "name": "Infinite Wig B", "params": "body" },
+        "394": { "name": "Blade Mode Wig", "params": "body" }
+    },
+    "pl1400": {
+        "92": {  "name": "Health" },
+        "108": { "name": "FC Bar" }
+    }
 }

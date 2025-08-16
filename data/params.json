@@ -1,0 +1,9 @@
+// Custom parameter names, grouped by type
+{
+    "body": {
+        "float0": "Damage Dealt Factor",
+        "float1": "Damage Received Factor",
+        "float2": "Energy Absorption Factor",
+        "float3": "Energy Drain Factor"
+    }
+}
