@@ -58,18 +58,25 @@ bool Drawing::isActive()
 	return bDraw == true;
 }
 
-std::vector<std::pair<std::string, std::pair<int, std::string>>> Objects; // Load the JSON data only once, and change the units according if it found a object
-std::vector<std::pair<int, std::string>> CurrentUnits;
+std::map<std::string, std::map<int, std::string>> Objects; // Load the JSON data only once, and change the units according if it found a object
+std::map<std::string, std::map<int, std::map<std::string, std::string>>> ParamNames;
+std::map<int, std::string> CurrentUnits;
+std::map<int, std::map<std::string, std::string>> CurrentParamNames;
 
-std::vector<std::pair<int, std::string>> GetObjectUnit(const char* objectName)
+std::map<int, std::string> GetObjectUnit(const char* objectName)
 {
-	std::vector<std::pair<int, std::string>> result;
-	for (const auto& object : Objects)
-	{
-		if (object.first == objectName)
-		{
-			result.push_back(object.second);
-		}
+	std::map<int, std::string> result;
+	if (Objects.contains(objectName)) {
+		result = Objects.at(objectName);
+	}
+	return result;
+}
+
+std::map<int, std::map<std::string, std::string>> GetParamNameOverrides(const char* objectName)
+{
+	std::map<int, std::map<std::string, std::string>> result;
+	if (ParamNames.contains(objectName)) {
+		result = ParamNames.at(objectName);
 	}
 	return result;
 }
@@ -77,33 +84,50 @@ std::vector<std::pair<int, std::string>> GetObjectUnit(const char* objectName)
 void ReadObjectsJSON()
 {
 	Objects.clear();
+	ParamNames.clear();
 	CurrentUnits.clear();
+	CurrentParamNames.clear();
 
 	FILE* file = fopen((MyPath + "\\data\\objects.json").c_str(), "r");
 	printf("path: %s\n", (MyPath + "\\data\\objects.json").c_str());
-	if (file)
+	FILE* paramsFile = fopen((MyPath + "\\data\\params.json").c_str(), "r");
+	if (file && paramsFile)
 	{
 		nlohmann::json jsonData = nlohmann::json::parse(file, nullptr, false, true);
+		nlohmann::json paramNameData = nlohmann::json::parse(paramsFile, nullptr, false, true);
 		for (const auto& item : jsonData.items())
 		{
 			std::string objectName = item.key();
 			printf("object: %s\n", objectName.c_str());
-			const nlohmann::json& unitArray = item.value();
-			for (const auto &unit : unitArray)
+			const nlohmann::json& idKvps = item.value();
+			std::map<int, std::string> unitNames;
+			std::map<int, std::map<std::string, std::string>> paramNames;
+			for (const auto& unit : idKvps.items())
 			{
-				if (!unit.is_object())
-					continue;
-
-				int id = unit.at("id").get<int>();
-				std::string desc = unit.at("name").get<std::string>();
+				int id = std::stoi(unit.key());
+				std::string desc = unit.value().at("name");
 				printf("\t unit: %d, desc: %s\n", id, desc.c_str());
-				Objects.emplace_back(std::pair<std::string, std::pair<int, std::string>>(objectName, {id, desc}));
+				unitNames.insert(std::pair<int, std::string>(id, desc));
+				if (unit.value().contains("params")) {
+					// Load param name overrides
+					nlohmann::json paramUnit = paramNameData.at(unit.value().at("params"));
+					std::map<std::string, std::string> paramUnitMap;
+					for (const auto& nameUnit : paramUnit.items()) {
+						paramUnitMap.insert(std::pair<std::string, std::string>(nameUnit.key(), nameUnit.value()));
+					}
+					paramNames.insert(std::pair<int, std::map<std::string, std::string>>(id, paramUnitMap));
+				}
 
 				// printf("I think object %s with %d and %s was added\n", Objects.back().first.c_str(), Objects.back().second.first, Objects.back().second.second.c_str());
 			}
+			Objects.insert(std::pair<std::string, std::map<int, std::string>>(objectName, unitNames));
+			ParamNames.insert(std::pair<std::string, std::map<int, std::map<std::string, std::string>>>(objectName, paramNames));
 		}
-		fclose(file);
 	}
+	if (file)
+		fclose(file);
+	if (paramsFile)
+		fclose(paramsFile);
 }
 
 std::string AutoGuessObject = "";
@@ -210,6 +234,8 @@ void Drawing::Draw()
 
 						CurrentUnits.clear();
 						CurrentUnits = GetObjectUnit(AutoGuessObject.c_str());
+						CurrentParamNames.clear();
+						CurrentParamNames = GetParamNameOverrides(AutoGuessObject.c_str());
 					}
 				}
 				ImGui::EndMenu();
@@ -238,9 +264,12 @@ void Drawing::Draw()
 					if (ImGui::Selectable(object.first.c_str(), bSelected))
 					{
 						AutoGuessObject = object.first;
-						CurrentUnits.clear();
 
+						CurrentUnits.clear();
 						CurrentUnits = GetObjectUnit(AutoGuessObject.c_str());
+
+						CurrentParamNames.clear();
+						CurrentParamNames = GetParamNameOverrides(AutoGuessObject.c_str());
 					}
 
 					if (bSelected)
@@ -264,32 +293,42 @@ void Drawing::Draw()
 					continue;
 				
 				std::string unitName = std::format("Unit {}", unit->m_id);
-				if (!CurrentUnits.empty())
-				{
-					for (const auto& currentUnit : CurrentUnits)
-					{
-						if (currentUnit.first == unit->m_id)
-						{
-							unitName = currentUnit.second;
-							break;
-						}
-					}
-				}
+				if (CurrentUnits.contains(unit->m_id))
+					unitName = CurrentUnits.at(unit->m_id);
+				std::map<std::string, std::string> paramNames;
+				if (CurrentParamNames.contains(unit->m_id))
+					paramNames = CurrentParamNames.at(unit->m_id);
+				
+				#define defaultParamName(key, val) do { \
+					if (!paramNames.contains(key)) \
+						paramNames.insert(std::pair<std::string, std::string>(key, val)); \
+					} while (false)
+
+				defaultParamName("id", "ID");
+				defaultParamName("atkPower", "Attack Power");
+				defaultParamName("atkHavokMulScalar", "Attack Havok Mul Scalar");
+				defaultParamName("atkHavokPow", "Attack Havok Pow");
+				defaultParamName("hitStopTime", "Hit Stop Time");
+				defaultParamName("int0", "Int 0");
+				defaultParamName("int1", "Int 1");
+				defaultParamName("float0", "Float 0");
+				defaultParamName("float1", "Float 1");
+				defaultParamName("float2", "Float 2");
+				defaultParamName("float3", "Float 3");
+				defaultParamName("no", "No");
+				defaultParamName("easyPowerScale", "Easy Power Scale");
+				defaultParamName("hardPowerScale", "Hard Power Scale");
+				defaultParamName("vhPowerScale", "Very Hard Power Scale");
+				defaultParamName("revPowerScale", "Revengeance Power Scale");
+				defaultParamName("int3", "Int 3");
+				defaultParamName("int4", "Int 4");
+				defaultParamName("int5", "Int 5");
 
 				if (ImGui::TreeNode(unit, unitName.c_str()))
 				{
 					std::string* StringToChange = nullptr;
-					if (!CurrentUnits.empty())
-					{
-						for (auto& currentUnit : CurrentUnits)
-						{
-							if (currentUnit.first == unit->m_id)
-							{
-								StringToChange = &currentUnit.second;
-								break;
-							}
-						}
-					}
+					if (CurrentUnits.contains(unit->m_id))
+						StringToChange = &CurrentUnits.at(unit->m_id);
 					if (ImGui::BeginPopup("Change Name"))
 					{
 						static char lStringToChange[256] = { 0 };
@@ -299,7 +338,7 @@ void Drawing::Draw()
 							if (StringToChange)
 								*StringToChange = lStringToChange;
 							else
-								CurrentUnits.emplace_back(unit->m_id, lStringToChange);
+								CurrentUnits.insert(std::pair<int, std::string>(unit->m_id, lStringToChange));
 
 							lStringToChange[0] = 0;
 
@@ -316,25 +355,26 @@ void Drawing::Draw()
 					{
 						ImGui::OpenPopup("Change Name");
 					}
-					ImGui::InputInt("ID", &unit->m_id);
-					ImGui::InputInt("Attack Power", &unit->m_AtkPower);
-					ImGui::InputInt("Attack Havok Mul Scalar", &unit->m_AtkHavokMulScalar);
-					ImGui::InputInt("Attack Havok Pow", &unit->m_AtkHavokPow);
-					ImGui::InputInt("Hit Stop Time", &unit->m_HitStopTime);
-					ImGui::InputInt("Int 0", &unit->m_Int0);
-					ImGui::InputInt("Int 1", &unit->m_Int1);
-					ImGui::InputFloat("Damage Dealt Factor", &unit->m_BodyAtk);
-					ImGui::InputFloat("Damage Received Factor", &unit->m_BodyDef);
-					ImGui::InputFloat("Energy Absorption Factor", &unit->m_BodyFcGain);
-					ImGui::InputFloat("Energy Drain Factor", &unit->m_BodyFcLoss);
-					ImGui::InputInt("No", &unit->m_No);
-					ImGui::InputFloat("Easy Power Scale", &unit->m_EasyPowerScale);
-					ImGui::InputFloat("Hard Power Scale", &unit->m_HardPowerScale);
-					ImGui::InputFloat("Very Hard Power Scale", &unit->m_VeryhardPowerScale);
-					ImGui::InputFloat("Revengeance Power Scale", &unit->m_RevengeancePowerScale);
-					ImGui::InputInt("Int 3", &unit->m_Int3);
-					ImGui::InputInt("Int 4", &unit->m_Int4);
-					ImGui::InputInt("Int 5", &unit->m_Int5);
+					
+					ImGui::InputInt(paramNames.at("id").c_str(), &unit->m_id);
+					ImGui::InputInt(paramNames.at("atkPower").c_str(), &unit->m_AtkPower);
+					ImGui::InputInt(paramNames.at("atkHavokMulScalar").c_str(), &unit->m_AtkHavokMulScalar);
+					ImGui::InputInt(paramNames.at("atkHavokPow").c_str(), &unit->m_AtkHavokPow);
+					ImGui::InputInt(paramNames.at("hitStopTime").c_str(), &unit->m_HitStopTime);
+					ImGui::InputInt(paramNames.at("int0").c_str(), &unit->m_Int0);
+					ImGui::InputInt(paramNames.at("int1").c_str(), &unit->m_Int1);
+					ImGui::InputFloat(paramNames.at("float0").c_str(), &unit->m_Float0);
+					ImGui::InputFloat(paramNames.at("float1").c_str(), &unit->m_Float1);
+					ImGui::InputFloat(paramNames.at("float2").c_str(), &unit->m_Float2);
+					ImGui::InputFloat(paramNames.at("float3").c_str(), &unit->m_Float3);
+					ImGui::InputInt(paramNames.at("no").c_str(), &unit->m_No);
+					ImGui::InputFloat(paramNames.at("easyPowerScale").c_str(), &unit->m_EasyPowerScale);
+					ImGui::InputFloat(paramNames.at("hardPowerScale").c_str(), &unit->m_HardPowerScale);
+					ImGui::InputFloat(paramNames.at("vhPowerScale").c_str(), &unit->m_VeryhardPowerScale);
+					ImGui::InputFloat(paramNames.at("revPowerScale").c_str(), &unit->m_RevengeancePowerScale);
+					ImGui::InputInt(paramNames.at("int3").c_str(), &unit->m_Int3);
+					ImGui::InputInt(paramNames.at("int4").c_str(), &unit->m_Int4);
+					ImGui::InputInt(paramNames.at("int5").c_str(), &unit->m_Int5);
 					if (ImGui::Button("Remove"))
 						FileTools::RemoveUnit(unit->m_id);
 					ImGui::TreePop();
