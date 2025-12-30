@@ -5,5 +5,14 @@
         "float1": "Damage Received Factor",
         "float2": "Energy Absorption Factor",
         "float3": "Energy Drain Factor"
+    },
+    "sword_stats": {
+        "float0": "Damage Dealt Factor",
+        "float1": "Damage Received Factor",
+        "float2": "Energy Absorption Factor",
+        "float3": "Energy Drain Factor"
+    },
+    "sword_special": {
+        "float0": "Special Ability Factor"
     }
 }
