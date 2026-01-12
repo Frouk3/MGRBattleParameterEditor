@@ -15,7 +15,7 @@ void FileTools::OpenFile(const wchar_t* fileName)
 	FileBufferSize = ftell(File);
 	fseek(File, 0, SEEK_SET);
 
-	FileBuffer = (char*)malloc(FileBufferSize + 32u); // 32 as reserved
+	FileBuffer = (char*)calloc(1, FileBufferSize + 32u); // 32 as reserved
 
 	if (!FileBuffer)
 	{
@@ -28,6 +28,25 @@ void FileTools::OpenFile(const wchar_t* fileName)
 
 	fclose(File);
 	File = nullptr;
+}
+
+void FileTools::OpenFileMem(const char* pData, size_t dataSize)
+{
+	if (!pData || dataSize == 0)
+		return;
+
+	if (FileBuffer)
+	{
+		free(FileBuffer);
+		FileBuffer = nullptr;
+	}
+
+	FileBufferSize = dataSize;
+	FileBuffer = (char*)calloc(1, FileBufferSize + 32u); // 32 as reserved
+	if (!FileBuffer)
+		return;
+
+	memcpy(FileBuffer, pData, dataSize);
 }
 
 void FileTools::Cleanup()
@@ -127,7 +146,7 @@ void FileTools::SaveUnits()
 {
 	size_t newFileSize = 4 + Units.size() * sizeof(BattleParameter::Unit);
 
-	BattleParameter::File* file = (BattleParameter::File*)malloc(newFileSize + 32u);
+	BattleParameter::File* file = (BattleParameter::File*)calloc(1, newFileSize + 32u);
 
 	if (!file)
 		return;
