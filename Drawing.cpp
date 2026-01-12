@@ -144,7 +144,6 @@ void ReadObjectsJSON()
 
 std::string AutoGuessObject = "";
 
-bool bOpenedDatContainer = false;
 FILE* DatContainerFile = nullptr;
 bool bDatExplorerOpened = false;
 void* pDatFileData = nullptr;
@@ -161,28 +160,33 @@ void DrawDatContainer()
 		fseek(DatContainerFile, 0, SEEK_END);
 		size_t fileSize = ftell(DatContainerFile);
 		fseek(DatContainerFile, 0, SEEK_SET);
-		pDatFileData = calloc(1, fileSize); // calloc to make sure that it's allocated and zeroed
-		if (pDatFileData)
-			fread(pDatFileData, 1, fileSize, DatContainerFile);
+
+		if (fileSize && fileSize != -1)
+		{
+			pDatFileData = calloc(1, fileSize); // calloc to make sure that it's allocated and zeroed
+			if (pDatFileData)
+				fread(pDatFileData, 1, fileSize, DatContainerFile);
+		}
 	}
 
 	if (pDatFileData)
 	{
 		FmergeHeader* header = (FmergeHeader*)pDatFileData;
-		unsigned int* offsets = (unsigned int*)((char*)pDatFileData + header->m_OffsetTblOffs);
-		unsigned int* sizes = (unsigned int*)((char*)pDatFileData + header->m_SizeOffs);
-		const char* names = (const char*)((char*)pDatFileData + header->m_NamesOffs + 4); // +4 to skip size field
-		unsigned int longestName = *(unsigned int*)((char*)pDatFileData + header->m_NamesOffs);
-		unsigned int fileNum = header->m_FileNum;
 		if (!strcmp(header->magic, "DAT\0"))
 		{
+			unsigned int* offsets = (unsigned int*)((char*)pDatFileData + header->m_OffsetTblOffs);
+			unsigned int* sizes = (unsigned int*)((char*)pDatFileData + header->m_SizeOffs);
+			const char* names = (const char*)((char*)pDatFileData + header->m_NamesOffs + 4); // +4 to skip size field
+			unsigned int longestName = *(unsigned int*)((char*)pDatFileData + header->m_NamesOffs);
+			unsigned int fileNum = header->m_FileNum;
+
 			static char searchBarContent[256] = { 0 };
 
 			auto toLower = [](const char *str) -> std::string
 				{
 					std::string result = str;
 					size_t len = result.length() - 1;
-					while ((signed)len)
+					while ((signed)len >= 0)
 					{
 						if (isupper(result[len]))
 							result[len] = tolower(result[len]);
@@ -282,6 +286,21 @@ void DrawDatContainer()
 	}
 
 	ImGui::End();
+
+	if (!bDatExplorerOpened)
+	{
+		if (DatContainerFile)
+		{
+			fclose(DatContainerFile);
+			DatContainerFile = nullptr;
+		}
+
+		if (pDatFileData)
+		{
+			free(pDatFileData);
+			pDatFileData = nullptr;
+		}
+	}
 }
 
 void Drawing::Draw()
@@ -360,8 +379,8 @@ void Drawing::Draw()
 
 					if (GetOpenFileNameW(&ofn))
 					{
-						char extension[5] = { 0 };
-						wcstombs_s(nullptr, extension, 5, &szFileName[wcslen(szFileName) - 4], 4);
+						ConvertWideToUTF8(szFileName);
+						const char* extension = strrchr(ConvertWideToUTF8(szFileName).c_str(), '.');
 						if (!stricmp(extension, ".dat"))
 						{
 							if (DatContainerFile)
