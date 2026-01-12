@@ -71,8 +71,8 @@ std::map<int, std::string> GetObjectUnit(const char* objectName)
 		result = Objects.at(objectName);
 	}
 	*/
-	if (Objects.find(objectName) != Objects.end())
-		result = Objects.at(objectName);
+	if (auto it = Objects.find(objectName); it != Objects.end())
+		result = it->second;
 
 	return result;
 }
@@ -85,8 +85,8 @@ std::map<int, std::map<std::string, std::string>> GetParamNameOverrides(const ch
 		result = ParamNames.at(objectName);
 	}
 	*/
-	if (ParamNames.find(objectName) != ParamNames.end())
-		result = ParamNames.at(objectName);
+	if (auto it = ParamNames.find(objectName); it != ParamNames.end())
+		result = it->second;
 
 	return result;
 }
@@ -469,7 +469,7 @@ void Drawing::Draw()
 					unitName = CurrentUnits.at(unit->m_id);
 				*/
 				if (auto it = CurrentUnits.find(unit->m_id); it != CurrentUnits.end())
-					unitName = (*it).second;
+					unitName = it->second;
 				std::map<std::string, std::string> paramNames;
 				/* that's 2x overhead, use find instead
 				if (CurrentParamNames.contains(unit->m_id))
@@ -480,7 +480,7 @@ void Drawing::Draw()
 				// And I know that some standards say that we should use contains and at to retrieve data, but in this case it's not optimal
 
 				if (auto it = CurrentParamNames.find(unit->m_id); it != CurrentParamNames.end())
-					paramNames = (*it).second;
+					paramNames = it->second;
 				
 				#define defaultParamName(key, val) do { \
 					if (!paramNames.contains(key)) \
