@@ -29,17 +29,22 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpReserved)
 #pragma warning(push)
 #pragma warning(disable : 4996)
 
+FILE* outFile = nullptr, *errFile = nullptr;
+
 int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _In_ LPWSTR lpCmdLine, _In_ int nShowCmd)
 {
 	std::string commandLine = ConvertWideToUTF8(lpCmdLine);
     if (strstr(commandLine.c_str(), "-console"))
 	{
 		AllocConsole();
-		freopen("CONOUT$", "w", stdout);
-		freopen("CONOUT$", "w", stderr);
+		outFile = freopen("CONOUT$", "w", stdout);
+		errFile = freopen("CONOUT$", "w", stderr);
         printf("Console initialized.\n");
 	}
     UI::Render();
+
+	if (outFile) fclose(outFile);
+	if (errFile) fclose(errFile);
 
     FreeConsole();
 

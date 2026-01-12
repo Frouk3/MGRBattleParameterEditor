@@ -66,18 +66,28 @@ std::map<int, std::map<std::string, std::string>> CurrentParamNames;
 std::map<int, std::string> GetObjectUnit(const char* objectName)
 {
 	std::map<int, std::string> result;
+	/*
 	if (Objects.contains(objectName)) {
 		result = Objects.at(objectName);
 	}
+	*/
+	if (auto it = Objects.find(objectName); it != Objects.end())
+		result = it->second;
+
 	return result;
 }
 
 std::map<int, std::map<std::string, std::string>> GetParamNameOverrides(const char* objectName)
 {
 	std::map<int, std::map<std::string, std::string>> result;
+	/*
 	if (ParamNames.contains(objectName)) {
 		result = ParamNames.at(objectName);
 	}
+	*/
+	if (auto it = ParamNames.find(objectName); it != ParamNames.end())
+		result = it->second;
+
 	return result;
 }
 
@@ -108,13 +118,14 @@ void ReadObjectsJSON()
 				std::string desc = unit.value().at("name");
 				printf("\t unit: %d, desc: %s\n", id, desc.c_str());
 				unitNames.insert(std::pair<int, std::string>(id, desc));
-				if (unit.value().contains("params")) {
+				if (unit.value().contains("params")) 
+				{
 					// Load param name overrides
 					nlohmann::json paramUnit = paramNameData.at(unit.value().at("params"));
 					std::map<std::string, std::string> paramUnitMap;
-					for (const auto& nameUnit : paramUnit.items()) {
+					for (const auto& nameUnit : paramUnit.items()) 
 						paramUnitMap.insert(std::pair<std::string, std::string>(nameUnit.key(), nameUnit.value()));
-					}
+
 					paramNames.insert(std::pair<int, std::map<std::string, std::string>>(id, paramUnitMap));
 				}
 
@@ -126,11 +137,171 @@ void ReadObjectsJSON()
 	}
 	if (file)
 		fclose(file);
+
 	if (paramsFile)
 		fclose(paramsFile);
 }
 
 std::string AutoGuessObject = "";
+
+FILE* DatContainerFile = nullptr;
+bool bDatExplorerOpened = false;
+void* pDatFileData = nullptr;
+
+void DrawDatContainer()
+{
+	if (!bDatExplorerOpened || !DatContainerFile)
+		return;
+
+	ImGui::Begin("DAT Explorer", &bDatExplorerOpened, ImGuiWindowFlags_None);
+
+	if (!pDatFileData)
+	{
+		fseek(DatContainerFile, 0, SEEK_END);
+		size_t fileSize = ftell(DatContainerFile);
+		fseek(DatContainerFile, 0, SEEK_SET);
+
+		if (fileSize && fileSize != -1)
+		{
+			pDatFileData = calloc(1, fileSize); // calloc to make sure that it's allocated and zeroed
+			if (pDatFileData)
+				fread(pDatFileData, 1, fileSize, DatContainerFile);
+		}
+	}
+
+	if (pDatFileData)
+	{
+		FmergeHeader* header = (FmergeHeader*)pDatFileData;
+		if (!strcmp(header->magic, "DAT\0"))
+		{
+			unsigned int* offsets = (unsigned int*)((char*)pDatFileData + header->m_OffsetTblOffs);
+			unsigned int* sizes = (unsigned int*)((char*)pDatFileData + header->m_SizeOffs);
+			const char* names = (const char*)((char*)pDatFileData + header->m_NamesOffs + 4); // +4 to skip size field
+			unsigned int longestName = *(unsigned int*)((char*)pDatFileData + header->m_NamesOffs);
+			unsigned int fileNum = header->m_FileNum;
+
+			static char searchBarContent[256] = { 0 };
+
+			auto toLower = [](const char *str) -> std::string
+				{
+					std::string result = str;
+					size_t len = result.length() - 1;
+					while ((signed)len >= 0)
+					{
+						if (isupper(result[len]))
+							result[len] = tolower(result[len]);
+
+						len--;
+					}
+
+					return result;
+				};
+
+			{
+				static bool bSearchBar = false;
+				if (ImGui::IsKeyDown(ImGuiKey_LeftCtrl) && ImGui::IsKeyPressed(ImGuiKey_F))
+					bSearchBar ^= true;
+
+				if (bSearchBar)
+				{
+					ImVec4 bgColor(0.2f, 0.2f, 0.2f, 0.8f);
+					ImVec4 borderColor(0.7f, 0.7f, 0.7f, 1.0f);
+
+					ImGui::PushStyleColor(ImGuiCol_FrameBg, bgColor);
+					ImGui::PushStyleColor(ImGuiCol_Border, borderColor);
+					ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 8.0f);
+					ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(10, 5));
+
+					ImGui::PushItemWidth(ImGui::GetWindowContentRegionMax().x - 100.f);
+					ImGui::InputText("##search", searchBarContent, sizeof(searchBarContent));
+					ImGui::SetItemDefaultFocus();
+					ImGui::PopItemWidth();
+
+					ImGui::SameLine();
+					if (ImGui::Button("Clear", ImVec2(ImGui::GetContentRegionAvail().x - 5.f, 0)))
+					{
+						searchBarContent[0] = '\0';
+					}
+
+					ImGui::PopStyleVar(2);
+					ImGui::PopStyleColor(2);
+				}
+			}
+			auto getFileSizeString = [](unsigned int size) -> std::string
+				{
+					if (size < 1024u)
+						return std::format("{} B", size);
+					else if (size < 1024u * 1024u)
+						return std::format("{:.2f} KB", size / 1024.0);
+					else if (size < 1024u * 1024u * 1024u)
+						return std::format("{:.2f} MB", size / (1024.0 * 1024.0));
+					else
+						return std::format("{:.2f} GB", size / (1024.0 * 1024.0 * 1024.0));
+				};
+
+			for (unsigned int i = 0; i < fileNum; i++)
+			{
+				if (searchBarContent[0] != 0)
+				{
+					std::string lowerName = toLower(&names[i * longestName]);
+					std::string lowerSearch = toLower(searchBarContent);
+					if (lowerName.find(lowerSearch) == std::string::npos)
+						continue;
+				}
+
+				char buffer[128] = { 0 };
+				sprintf_s(buffer, 128, "%s [%s]", &names[i * longestName], getFileSizeString(sizes[i]).c_str());
+				if (ImGui::Selectable(buffer, false))
+				{
+					bDatExplorerOpened = false;
+					FileTools::Cleanup();
+					FileTools::OpenFileMem((char*)pDatFileData + offsets[i], sizes[i]);
+					FileTools::ReadUnits();
+
+					ReadObjectsJSON();
+
+					char buf[8] = {0};
+					strncpy_s(buf, 8, &names[i * longestName], 6);
+					AutoGuessObject = buf;
+
+					CurrentUnits.clear();
+					CurrentUnits = GetObjectUnit(AutoGuessObject.c_str());
+					CurrentParamNames.clear();
+					CurrentParamNames = GetParamNameOverrides(AutoGuessObject.c_str());
+
+					if (DatContainerFile)
+					{
+						fclose(DatContainerFile);
+						DatContainerFile = nullptr;
+					}
+					if (pDatFileData)
+					{
+						free(pDatFileData);
+						pDatFileData = nullptr;
+					}
+					break;
+				}
+			}
+		}
+	}
+
+	ImGui::End();
+
+	if (!bDatExplorerOpened)
+	{
+		if (DatContainerFile)
+		{
+			fclose(DatContainerFile);
+			DatContainerFile = nullptr;
+		}
+
+		if (pDatFileData)
+		{
+			free(pDatFileData);
+			pDatFileData = nullptr;
+		}
+	}
+}
 
 void Drawing::Draw()
 {
@@ -175,7 +346,7 @@ void Drawing::Draw()
 						ofn.hwndOwner = NULL;
 						ofn.lpstrFile = szFileName;
 						ofn.nMaxFile = sizeof(szFileName) / sizeof(wchar_t);
-						ofn.lpstrFilter = L"Battle Parameter file\0*.BIN\0All files\0*.*\0";
+						ofn.lpstrFilter = L"Battle Parameter file(*.BIN)\0*.BIN\0All files(*.*)\0*.*\0";
 						ofn.nFilterIndex = 1;
 						ofn.lpstrFileTitle = NULL;
 						ofn.nMaxFileTitle = 0;
@@ -198,7 +369,7 @@ void Drawing::Draw()
 					ofn.hwndOwner = NULL;
 					ofn.lpstrFile = szFileName;
 					ofn.nMaxFile = sizeof(szFileName) / sizeof(wchar_t);
-					ofn.lpstrFilter = L"Battle Parameter file\0*.BIN\0All files\0*.*\0";
+					ofn.lpstrFilter = L"Battle Parameter file(*.BIN)\0*.BIN\0DAT Files(*.dat)\0*.dat\0All files(*.*)\0*.*\0";
 					ofn.nFilterIndex = 1;
 					ofn.lpstrFileTitle = NULL;
 					ofn.nMaxFileTitle = 0;
@@ -208,34 +379,53 @@ void Drawing::Draw()
 
 					if (GetOpenFileNameW(&ofn))
 					{
-						FileTools::Cleanup();
-						FileTools::OpenFile(szFileName);
-						FileTools::ReadUnits();
-
-						ReadObjectsJSON();
-
-						std::string AutoGuessedObject = "";
-						if (FileTools::LastPath[0] != 0)
+						ConvertWideToUTF8(szFileName);
+						const char* extension = strrchr(ConvertWideToUTF8(szFileName).c_str(), '.');
+						if (!stricmp(extension, ".dat"))
 						{
-							std::string path = ConvertWideToUTF8(FileTools::LastPath).c_str();
-
-							const char* object = strrchr(path.c_str(), '\\');
-							char* _object = (char*)_malloca(strlen(object) + 1);
-
-							if (_object)
+							if (DatContainerFile)
 							{
-								strcpy_s(_object, strlen(object) + 1, object + 1); // skip the backslash
-								_object[6] = '\0';
-								AutoGuessedObject = _object;
-								::AutoGuessObject = _object;
-								_freea(_object);
+								fclose(DatContainerFile);
+								DatContainerFile = nullptr;
+							}
+							DatContainerFile = _wfopen(szFileName, L"rb");
+							if (DatContainerFile)
+							{
+								bDatExplorerOpened = true;
+								pDatFileData = nullptr;
 							}
 						}
+						if (!DatContainerFile)
+						{
+							FileTools::Cleanup();
+							FileTools::OpenFile(szFileName);
+							FileTools::ReadUnits();
 
-						CurrentUnits.clear();
-						CurrentUnits = GetObjectUnit(AutoGuessObject.c_str());
-						CurrentParamNames.clear();
-						CurrentParamNames = GetParamNameOverrides(AutoGuessObject.c_str());
+							ReadObjectsJSON();
+
+							std::string AutoGuessedObject = "";
+							if (FileTools::LastPath[0] != 0)
+							{
+								std::string path = ConvertWideToUTF8(FileTools::LastPath).c_str();
+
+								const char* object = strrchr(path.c_str(), '\\');
+								char* _object = (char*)_malloca(strlen(object) + 1);
+
+								if (_object)
+								{
+									strcpy_s(_object, strlen(object) + 1, object + 1); // skip the backslash
+									_object[6] = '\0';
+									AutoGuessedObject = _object;
+									::AutoGuessObject = _object;
+									_freea(_object);
+								}
+							}
+
+							CurrentUnits.clear();
+							CurrentUnits = GetObjectUnit(AutoGuessObject.c_str());
+							CurrentParamNames.clear();
+							CurrentParamNames = GetParamNameOverrides(AutoGuessObject.c_str());
+						}
 					}
 				}
 				ImGui::EndMenu();
@@ -293,11 +483,23 @@ void Drawing::Draw()
 					continue;
 				
 				std::string unitName = std::format("Unit {}", unit->m_id);
+				/* that's 2x overhead, use find instead
 				if (CurrentUnits.contains(unit->m_id))
 					unitName = CurrentUnits.at(unit->m_id);
+				*/
+				if (auto it = CurrentUnits.find(unit->m_id); it != CurrentUnits.end())
+					unitName = it->second;
 				std::map<std::string, std::string> paramNames;
+				/* that's 2x overhead, use find instead
 				if (CurrentParamNames.contains(unit->m_id))
 					paramNames = CurrentParamNames.at(unit->m_id);
+				*/
+
+				// Overall, using find is better to avoid double lookups
+				// And I know that some standards say that we should use contains and at to retrieve data, but in this case it's not optimal
+
+				if (auto it = CurrentParamNames.find(unit->m_id); it != CurrentParamNames.end())
+					paramNames = it->second;
 				
 				#define defaultParamName(key, val) do { \
 					if (!paramNames.contains(key)) \
@@ -377,12 +579,18 @@ void Drawing::Draw()
 					ImGui::InputInt(paramNames.at("int5").c_str(), &unit->m_Int5);
 					if (ImGui::Button("Remove"))
 						FileTools::RemoveUnit(unit->m_id);
+
 					ImGui::TreePop();
 				}
 			}
 		}
 
 		ImGui::End();
+
+		ImGui::SetNextWindowSize(vWindowSize, ImGuiCond_Once);
+		ImGui::SetNextWindowBgAlpha(1.0f);
+
+		DrawDatContainer();
 	}
 
 	#ifdef _WINDLL

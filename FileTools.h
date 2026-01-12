@@ -16,6 +16,7 @@ namespace FileTools
 	inline std::vector<BattleParameter::Unit *> Units;
 
 	void OpenFile(const wchar_t* fileName);
+	void OpenFileMem(const char* pData, size_t dataSize);
 	void Cleanup();
 	void SaveFile(const wchar_t* fileName);
 

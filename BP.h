@@ -31,3 +31,14 @@ namespace BattleParameter
         Unit m_units[];
     } File;
 }
+
+struct FmergeHeader
+{
+    char magic[4];
+    unsigned int m_FileNum;
+    unsigned int m_OffsetTblOffs;
+    unsigned int m_ExtOffs;
+    unsigned int m_NamesOffs;
+    unsigned int m_SizeOffs;
+    unsigned int m_HashMapOffs;
+};
